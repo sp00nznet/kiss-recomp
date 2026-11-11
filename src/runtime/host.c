@@ -116,12 +116,26 @@ static int attach(module_t* m) {
 
 /* ---- the loader's shims (stdcall, arguments from g_esp) ----------------- */
 
+/* Times written L<S> count from the first load of the level's game code
+ * (object.lto), not from start-up: menus drift with machine load. */
+static volatile DWORD g_level_t0;
+#define LEVEL_TIME 0x80000000u
+static DWORD due_at(DWORD t0, DWORD at) {
+    if (!(at & LEVEL_TIME)) return t0 + at;
+    while (!g_level_t0) Sleep(100);
+    return g_level_t0 + (at & ~LEVEL_TIME);
+}
+static DWORD parse_time(const char* s) {
+    return *s == 'L' ? LEVEL_TIME | (DWORD)(atof(s + 1) * 1000) : (DWORD)(atof(s) * 1000);
+}
+
 static void shim_LoadLibraryA(void) {
     const char* name = (const char*)(uintptr_t)ARG(0);
     module_t* m = module_by_name(name);
     if (!m) m = module_by_file(name);
     if (m) {
         fprintf(stderr, "[load] %s -> %s\n", name, m->name);
+        if (!g_level_t0 && !_stricmp(m->name, "object.lto")) g_level_t0 = GetTickCount();
         g_eax = attach(m) ? m->base : 0;
     } else {
         g_eax = (uint32_t)(uintptr_t)LoadLibraryA(name);
@@ -500,7 +514,7 @@ static DWORD WINAPI shot_thread(LPVOID unused) {
     (void)unused;
     DWORD t0 = GetTickCount();
     for (int i = 0; i < g_shots; i++) {
-        DWORD at = t0 + g_shot_s[i] * 1000, now = GetTickCount();
+        DWORD at = due_at(t0, g_shot_s[i]), now = GetTickCount();
         if (at > now) Sleep(at - now);
         InterlockedExchange(&g_shot_due, i);
         for (int k = 0; k < 100 && g_shot_due >= 0; k++) Sleep(20);
@@ -509,16 +523,17 @@ static DWORD WINAPI shot_thread(LPVOID unused) {
     return 0;
 }
 
-/* --key VK@S: a key press sent to the game window at S seconds (DirectInput
- * reads the real keyboard, so it goes in through SendInput). */
-static struct { WORD vk; DWORD at; } g_keys[64];
+/* --key VK[:MS]@S: a key press sent to the game window at S seconds, held
+ * MS milliseconds (default 250). In-game controls read DirectInput: under
+ * --headless that is native32's synthetic keyboard, otherwise SendInput. */
+static struct { WORD vk; DWORD at, hold; } g_keys[64];
 static int g_nkeys;
 
 static DWORD WINAPI key_thread(LPVOID unused) {
     (void)unused;
     DWORD t0 = GetTickCount();
     for (int i = 0; i < g_nkeys; i++) {
-        DWORD at = t0 + g_keys[i].at, now = GetTickCount();
+        DWORD at = due_at(t0, g_keys[i].at), now = GetTickCount();
         if (at > now) Sleep(at - now);
         HWND w = NULL;
         EnumWindows(find_window, (LPARAM)&w);
@@ -549,8 +564,11 @@ static DWORD WINAPI key_thread(LPVOID unused) {
          * WM_KEYDOWN, which a window that is not in front never gets. */
         LPARAM lp = 1 | ((LPARAM)in[0].ki.wScan << 16) | (ext ? 1 << 24 : 0);
         if (!headless) SendInput(1, &in[0], sizeof(INPUT));
+        int dik = in[0].ki.wScan | (ext ? 0x80 : 0);
+        if (headless) native32_input_key(dik, 1);
         if (w) PostMessageA(w, WM_KEYDOWN, g_keys[i].vk, lp);
-        Sleep(250);   /* held across a few frames: DirectInput is polled once a frame */
+        Sleep(g_keys[i].hold);   /* held across a few frames: DirectInput is polled once a frame */
+        if (headless) native32_input_key(dik, 0);
         if (!headless) SendInput(1, &in[1], sizeof(INPUT));
         if (w) PostMessageA(w, WM_KEYUP, g_keys[i].vk, lp | 0xC0000000);
         printf("[key] 0x%02X at %lu ms%s\n", g_keys[i].vk, GetTickCount() - t0,
@@ -646,14 +664,16 @@ static int host_main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--rebased") && i + 1 < argc) strcpy_s(rebased, sizeof rebased, argv[++i]);
         else if (!strcmp(argv[i], "--watchdog") && i + 1 < argc) g_watchdog_s = strtoul(argv[++i], NULL, 0);
         else if (!strcmp(argv[i], "--shot") && i + 2 < argc && g_shots < 8) {
-            g_shot_s[g_shots] = strtoul(argv[++i], NULL, 0);
+            g_shot_s[g_shots] = parse_time(argv[++i]);
             GetFullPathNameA(argv[++i], MAX_PATH, g_shot_file[g_shots++], NULL);
         }
         else if (!strcmp(argv[i], "--key") && i + 1 < argc && g_nkeys < 64) {
             char* at = strchr(argv[++i], '@');
             if (!at) { fprintf(stderr, "--key wants VK@seconds\n"); return 1; }
-            g_keys[g_nkeys].vk = (WORD)strtoul(argv[i], NULL, 0);
-            g_keys[g_nkeys++].at = (DWORD)(atof(at + 1) * 1000);
+            char* end;
+            g_keys[g_nkeys].vk = (WORD)strtoul(argv[i], &end, 0);
+            g_keys[g_nkeys].hold = *end == ':' ? strtoul(end + 1, NULL, 0) : 250;
+            g_keys[g_nkeys++].at = parse_time(at + 1);
         }
         else if (!strcmp(argv[i], "--native-trace")) native32_trace_native = 1;
         else if (!strcmp(argv[i], "--heap-check")) g_heap_check = 1;

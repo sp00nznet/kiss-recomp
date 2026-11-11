@@ -38,7 +38,7 @@ each `LoadLibrary` with the lifted module. Third-party DLLs (`mss32.dll`,
 supply your own copy; the lifted C is generated on your machine into the
 gitignored `src/recomp/gen/`.
 
-## Status: v0.1.0-dev, early. A new game runs through the menus into the intro of the first level, in the recompiled code.
+## Status: v0.1.0-dev, early. In game: a new game runs through the menus and the intro into the first level, and the player moves, turns and jumps there, in the recompiled code.
 
 | Stage | State |
 |---|---|
@@ -50,10 +50,10 @@ gitignored `src/recomp/gen/`.
 | Third Law logo, profile screen, main menu | works |
 | New Game, difficulty, character select | works, driven by `--key` |
 | First level | loads (`object.lto`); the in-engine intro plays (Madam Raven's crystal ball, captions) |
-| Playing it (moving, firing) | not yet: in-game controls read DirectInput, which the headless harness cannot feed yet ([ROADMAP.md](ROADMAP.md)) |
+| Playing it | **moving, turning, jumping** in the first level, headless: `--key` feeds pcrecomp's synthetic DirectInput keyboard (`pcrecomp-ingame`). Firing and the mouse are untried |
 | Sound | Miles (`mss32.dll`); runs so far are muted (`+soundenable 0`) |
 | Headless (`--headless --record out.mp4`) | works: a private desktop, back-buffer screenshots, ffmpeg recording |
-| Toolkit | needs pcrecomp's `pcrecomp-lithtech2` branch, not yet in `main` |
+| Toolkit | needs pcrecomp's `pcrecomp-ingame` branch (contains `pcrecomp-lithtech2`), not yet in `main` |
 | Setup.cmd, launcher | Setup.cmd runs from a fresh clone to the shortcut in 7 minutes (tested with Python, pcrecomp and the compiler already there); the launcher is untested |
 | Conformance harness | none yet; the dry run (`build\kiss.exe`, no `--run`) is the only automatic check |
 | netlab | recipe `kiss-recomp` (generated C at `/Od`), no QA step, not yet built on the farm (the test VM was unreachable) |
@@ -180,13 +180,28 @@ The second line is the scripted path into the first level, headless: Enter
 past the intro movies, on New Profile, OK on the name "Player", Game, New
 Game, Lullaby, Pablo Ramirez, Start.
 
+Into the level and moving: times written `L<S>` count from the first load of
+the level's game code (`object.lto`), so they do not drift with the menus.
+
+```
+build\kiss.exe --headless --run --watchdog 600 --key 0x0D@55 --key 0x0D@75 ^
+    --key 0x0D@95 --key 0x0D@115 --key 0x0D@135 --key 0x0D@150 --key 0x0D@165 ^
+    --key 0x0D@180 --key 0x20@L60 --shot L165 start.bmp --key 0x27:1500@L170 ^
+    --key 0x20:600@L180 --key 0x45:6000@L190 --shot L194 moved.bmp ^
+    -- +windowed 1 +RGBRast 1 +soundenable 0
+```
+
+| The first level, at the start | after turning right, a jump and walking forward (`E`) |
+|---|---|
+| ![start](docs/screenshots/level1-start.png) | ![moved](docs/screenshots/level1-moved.png) |
+
 | Flag | |
 |---|---|
 | `--run` | enter the game (without it: map, bind and stop) |
 | `--headless` | run on a private desktop that is never shown (works over RDP) |
 | `--record FILE.mp4` | every presented frame to ffmpeg |
-| `--shot S FILE.bmp` | save `d3d.ren`'s back buffer at S seconds (up to 8) |
-| `--key VK@S` | press a virtual key S seconds in (posted `WM_KEYDOWN`; also `SendInput` when not headless) |
+| `--shot S FILE.bmp` (S or `L`S) | save `d3d.ren`'s back buffer at S seconds (up to 8) |
+| `--key VK[:MS]@S` | press a virtual key S seconds in, held MS ms (default 250): posted `WM_KEYDOWN`, plus native32's synthetic DirectInput keyboard under `--headless` (`SendInput` otherwise) |
 | `--watchdog S` | stop after S seconds and say where every thread was |
 | `--game DIR` | the game folder (default `game`) |
 | `--rebased DIR` | the relocated modules (default `work\rebased`) |

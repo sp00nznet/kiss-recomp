@@ -1,11 +1,8 @@
 # Roadmap
 
 ## Next
-- **Play the first level**: past the intro, into Madam Raven's tent and the
-  first world, moving and fighting. In-game controls read DirectInput, which
-  sees nothing on the `--headless` desktop: the harness needs DirectInput
-  keyboard and mouse state fed from `--key` (a native32 shim of
-  `IDirectInputDevice::GetDeviceState`), or a run on an offstage monitor.
+- **Play the first level** for real: fire (mouse button 0 / Ctrl), mouse look
+  (native32's synthetic mouse), through Madam Raven's tent into the first world.
 - **Sound**: runs are muted (`+soundenable 0`); turn Miles on and check it,
   and the Interactive Music (`ima.dll`) score.
 - **A conformance harness** (REPO_RULES section 9): fixed milestones (the
@@ -16,8 +13,8 @@
   the testbox VM was unreachable when the recipe went in.
 - **pcrecomp-lithtech2 into pcrecomp main**, then point Setup, the launcher
   and the netlab recipe at `main`.
-- Key timing: `--key` presses are at fixed seconds and drift when a run is
-  slower (`--record`); wait for a screen instead (a shot that matches).
+- Key timing: menu presses are at fixed seconds and drift when a run is
+  slower (`--record`); in-level ones can count from the level load (`L<S>`).
 
 ## Later
 - The Direct3D hardware path (only the RGB software rasterizer has run:
