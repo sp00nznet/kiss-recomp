@@ -54,7 +54,7 @@ gitignored `src/recomp/gen/`.
 | Sound | Miles (`mss32.dll`); runs so far are muted (`+soundenable 0`) |
 | Headless (`--headless --record out.mp4`) | works: a private desktop, back-buffer screenshots, ffmpeg recording |
 | Toolkit | needs pcrecomp's `pcrecomp-lithtech2` branch, not yet in `main` |
-| Setup.cmd, launcher | written; Setup tested from a fresh clone (see Getting Started) |
+| Setup.cmd, launcher | Setup.cmd runs from a fresh clone to the shortcut in 7 minutes (tested with Python, pcrecomp and the compiler already there); the launcher is untested |
 | Conformance harness | none yet; the dry run (`build\kiss.exe`, no `--run`) is the only automatic check |
 | netlab | recipe `kiss-recomp` (generated C at `/Od`), no QA step, not yet built on the farm (the test VM was unreachable) |
 
