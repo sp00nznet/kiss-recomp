@@ -1,0 +1,11 @@
+KISS Psycho Circus: The Nightmare Child recomp
+
+Started from the Shogo: Mobile Armor Division recomp
+(https://github.com/sp00nznet/shogo-recomp), whose module loader is derived
+from the Unreal Tournament recomp (https://github.com/sp00nznet/ut99-recomp)
+and whose layout is the Crazy Taxi recomp's. It runs on pcrecomp's native32
+runtime (https://github.com/sp00nznet/pcrecomp). All MIT.
+
+KISS Psycho Circus: The Nightmare Child is (c) Third Law Interactive and
+Gathering of Developers; KISS is a trademark of its owners; LithTech is (c)
+Monolith Productions. No part of the game is included.
