@@ -9,7 +9,7 @@
     "name": "KISS Psycho Circus: The Nightmare Child 1.13",
     "files": ["client.exe", "KPCPatch.rez"]
   },
-  "sources": [{ "repo": "sp00nznet/pcrecomp", "ref": "pcrecomp-lithtech2", "dir": "pcrecomp" }],
+  "sources": [{ "repo": "sp00nznet/pcrecomp", "ref": "pcrecomp-ingame", "dir": "pcrecomp" }],
   "setup": {
     "windows": ["cmd", "/c", "Setup.cmd", "-Yes", "-GameDir", "{game}"]
   },
