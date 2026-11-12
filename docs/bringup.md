@@ -103,6 +103,18 @@ through the renderer's function table at +0xA8), and `--record` pipes the
 same frames to ffmpeg. `--key` only posts `WM_KEYDOWN`/`WM_KEYUP` there:
 `SendInput` would type into the user's own session.
 
+## 7. In the level: DirectInput with no keyboard
+
+The menus read window messages, but the level's controls read the DirectInput
+keyboard, and on the private desktop it sees nothing. pcrecomp's
+`pcrecomp-ingame` branch gives native32 a synthetic DirectInput keyboard
+(`native32_input_key`, both the state and the buffered `GetDeviceData`
+events); under `--headless` each `--key` goes into it as a DIK scan code as
+well as a posted message, held for `:MS` milliseconds (a tap of 250 ms moves
+the player a step; a turn needs a second or more). Menu timing drifts with
+machine load, so in-level times can be written `L<S>`, counted from the first
+`LoadLibrary` of `object.lto`.
+
 ## Debugging aids
 
 - `--heap-check`: every guest heap call validates every heap in the

@@ -20,5 +20,15 @@ All notable changes to this project are documented here. The format follows
   present, `--record FILE.mp4` pipes every frame to ffmpeg.
 - Diagnostics: `--heap-check`, `--native MODULE`, `--di-probe`, and a crash
   report that names the faulting page's state and the native stack.
+- In the first level: moving, turning and jumping, headless. `--key
+  VK[:MS]@S` holds a key and feeds native32's synthetic DirectInput keyboard
+  under `--headless`; `L<S>` times count from the level load.
+- `NOTICE.md`, `CONTRIBUTING.md`, `CONTRIBUTORS.md`, `docs/building.md`,
+  `docs/testing.md`.
 - `Setup.cmd` (`tools/setup.ps1`), `launcher/launcher.json`, the hand-run
   `installer` workflow, `docs/bringup.md`, `docs/lithtech.md`.
+
+### Fixed
+- Setup and the launcher fetched pcrecomp's `pcrecomp-lithtech2` branch, which
+  lacks `native32_input_key`, so a fresh clone did not compile. They use
+  `pcrecomp-ingame` now, and Setup checks for it.

@@ -3,7 +3,7 @@
   "repo": "sp00nznet/kiss-recomp",
   "accent": "#8a2be2",
   "note": {
-    "windows": "Point it at your copy of KISS Psycho Circus patched to 1.13 (the folder holding client.exe and KPCPatch.rez; the README says how to make it from the CD and the two official patches). The build takes about 10 minutes and 3 GB. Python and the Visual Studio Build Tools are installed if they are missing; the Build Tools are about 3 GB and add 15 to 30 minutes, and Windows asks for permission once."
+    "windows": "Point it at your copy of KISS Psycho Circus patched to 1.13 (the folder holding client.exe and KPCPatch.rez; the README says how to make it from the CD and the two official patches). The build takes about 15 minutes and 3 GB. Python and the Visual Studio Build Tools are installed if they are missing; the Build Tools are about 3 GB and add 15 to 30 minutes, and Windows asks for permission once."
   },
   "game": {
     "name": "KISS Psycho Circus: The Nightmare Child 1.13",

@@ -1,5 +1,12 @@
 # Roadmap
 
+## Done
+- All 8 modules lifted (28,494 functions, 0 errors, no IDA) and linked into
+  one host on `native32`.
+- The menus, a new game and the in-engine intro; moving, turning and jumping
+  in the first level, headless.
+- Setup.cmd from a fresh clone to the shortcut.
+
 ## Next
 - **Play the first level** for real: fire (mouse button 0 / Ctrl), mouse look
   (native32's synthetic mouse), through Madam Raven's tent into the first world.
@@ -11,7 +18,7 @@
   in the README and a `QA` line in the netlab recipe.
 - **Finish a farm build**: `netlab build kiss-recomp` (generated C at /Od);
   the testbox VM was unreachable when the recipe went in.
-- **pcrecomp-lithtech2 into pcrecomp main**, then point Setup, the launcher
+- **pcrecomp-ingame (with pcrecomp-lithtech2) into pcrecomp main**, then point Setup, the launcher
   and the netlab recipe at `main`.
 - Key timing: menu presses are at fixed seconds and drift when a run is
   slower (`--record`); in-level ones can count from the level load (`L<S>`).
