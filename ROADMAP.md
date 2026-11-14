@@ -18,8 +18,6 @@
   in the README and a `QA` line in the netlab recipe.
 - **Finish a farm build**: `netlab build kiss-recomp` (generated C at /Od);
   the testbox VM was unreachable when the recipe went in.
-- **pcrecomp-ingame (with pcrecomp-lithtech2) into pcrecomp main**, then point Setup, the launcher
-  and the netlab recipe at `main`.
 - Key timing: menu presses are at fixed seconds and drift when a run is
   slower (`--record`); in-level ones can count from the level load (`L<S>`).
 

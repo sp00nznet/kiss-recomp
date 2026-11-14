@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+- Builds against pcrecomp main; the `pcrecomp-ingame` branch is merged.
+
 ### Added
 - First boot of KISS Psycho Circus 1.13 on pcrecomp `native32`: 8 modules
   (`client.exe`, `server.dll`, `d3d.ren`, `cshell.dll`, `cres.dll`,

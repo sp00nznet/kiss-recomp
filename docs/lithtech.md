@@ -17,7 +17,7 @@ This recomp started as a copy of the [Shogo recomp](https://github.com/sp00nznet
 | `D3DDP_DONOTCLIP` workaround | needed (wild span writes) | not needed so far | not yet |
 | 16-bit relaunch (`16BITCOLOR`) | needed | needed | yes |
 | Early `AIL_startup` | needed | not needed; behind `--early-miles` | kept as an option |
-| DirectInput `HINSTANCE` shim | needed (pcrecomp-lithtech) | needed | yes, in pcrecomp |
+| DirectInput `HINSTANCE` shim | needed | needed | yes, in pcrecomp |
 | DirectInput `DISCL_FOREGROUND` patch | patched in `Client.exe` | not needed headless (input is posted) | not yet |
 | `EnumDevices` heap corruption | not seen (Shogo asks DirectInput 3) | crashed every run | new pcrecomp fix |
 | Screenshots | back buffer after present | the same idea, new VAs | yes |

@@ -13,7 +13,7 @@ commit anyway. Screenshots of the game running are fine.
 
 ## Before a pull request
 
-1. Build from a clean lift (pcrecomp on `pcrecomp-ingame`, beside this repo):
+1. Build from a clean lift (pcrecomp main, beside this repo):
    ```
    py -3 tools\rebase.py
    py -3 tools\catalog.py

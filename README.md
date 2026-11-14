@@ -9,7 +9,7 @@ the real DirectDraw, Direct3D, DirectInput and Miles. No emulator, no wrapper
 DLLs.
 
 Built on the [pcrecomp](https://github.com/sp00nznet/pcrecomp) toolchain,
-on its **`pcrecomp-ingame`** branch (not yet merged into `main`). It started
+on its `main` branch. It started
 from the [Shogo recomp](https://github.com/sp00nznet/shogo-recomp), the first
 LithTech game; [docs/lithtech.md](docs/lithtech.md) says what carried over.
 
@@ -32,7 +32,7 @@ everything is built on your machine from your copy.
 
 The script asks before installing anything (Python 3.10+, `pefile` and
 `capstone`, git, the Visual Studio 2022 C++ Build Tools), clones pcrecomp
-beside this folder on its `pcrecomp-ingame` branch, links your game folder
+beside this folder, links your game folder
 as `game`, and relocates, catalogs, lifts and builds the 8 modules into
 `build\kiss.exe`; about 15 minutes once the tools are there. A rerun skips
 finished steps; if it stops, it says why, and the details are in `setup.log`.
@@ -67,10 +67,10 @@ recompiled code. Firing, the mouse and sound are untried.
 | Third Law logo, profile screen, main menu | works |
 | New Game, difficulty, character select | works, driven by `--key` |
 | First level | loads (`object.lto`); the in-engine intro plays (Madam Raven's crystal ball, captions) |
-| Playing it | **moving, turning, jumping** in the first level, headless: `--key` feeds pcrecomp's synthetic DirectInput keyboard (`pcrecomp-ingame`). Firing and the mouse are untried |
+| Playing it | **moving, turning, jumping** in the first level, headless: `--key` feeds pcrecomp's synthetic DirectInput keyboard. Firing and the mouse are untried |
 | Sound | Miles (`mss32.dll`); runs so far are muted (`+soundenable 0`) |
 | Headless (`--headless --record out.mp4`) | works: a private desktop, back-buffer screenshots, ffmpeg recording |
-| Toolkit | needs pcrecomp's `pcrecomp-ingame` branch (contains `pcrecomp-lithtech2`), not yet in `main`; Setup clones and checks it |
+| Toolkit | pcrecomp `main`; Setup clones and checks it |
 | Setup.cmd, launcher | Setup.cmd runs from a fresh clone to the shortcut (16 minutes on 2026-11-12, cloning pcrecomp-ingame itself; Python and the compiler were already there); the launcher is untested and there is no installer release |
 | Conformance harness | none yet; the dry run (`build\kiss.exe`, no `--run`) is the only automatic check |
 | netlab | recipe `kiss-recomp` (generated C at `/Od`), no QA step, not yet built on the farm (the test VM was unreachable) |

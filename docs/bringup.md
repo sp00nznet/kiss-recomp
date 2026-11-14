@@ -106,8 +106,8 @@ same frames to ffmpeg. `--key` only posts `WM_KEYDOWN`/`WM_KEYUP` there:
 ## 7. In the level: DirectInput with no keyboard
 
 The menus read window messages, but the level's controls read the DirectInput
-keyboard, and on the private desktop it sees nothing. pcrecomp's
-`pcrecomp-ingame` branch gives native32 a synthetic DirectInput keyboard
+keyboard, and on the private desktop it sees nothing. pcrecomp
+gives native32 a synthetic DirectInput keyboard
 (`native32_input_key`, both the state and the buffered `GetDeviceData`
 events); under `--headless` each `--key` goes into it as a DIK scan code as
 well as a posted message, held for `:MS` milliseconds (a tap of 250 ms moves

@@ -11,7 +11,7 @@
 #   -GameDir <folder with client.exe and KPCPatch.rez>  skip the question (-Game works too)
 #   -Yes                                                answer yes to every install question
 #
-# The toolkit is ..\pcrecomp on its pcrecomp-ingame branch (PCRECOMP
+# The toolkit is ..\pcrecomp, on main (PCRECOMP
 # overrides it). Under recomp-launcher (RECOMP_LAUNCHER=1) it never waits for
 # Enter, and exit code 0 means the shortcut is there.
 param([switch]$Force, [switch]$Yes, [Alias('Game')][string]$GameDir = "")
@@ -109,10 +109,10 @@ if (-not (Test-Path (Join-Path $Toolkit 'tools\lift\lift32.py'))) {
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Fail "Git did not install. Install Git for Windows yourself." }
   }
   if (-not (Ask "  Download it now (git, about 20 MB)?")) { Fail "pcrecomp is required at $Toolkit." }
-  Run "Cloning pcrecomp" @('git', 'clone', '--depth', '1', '-b', 'pcrecomp-ingame', 'https://github.com/sp00nznet/pcrecomp', $Toolkit)
+  Run "Cloning pcrecomp" @('git', 'clone', '--depth', '1', 'https://github.com/sp00nznet/pcrecomp', $Toolkit)
 }
-# The toolkit changes this game needs (on pcrecomp-ingame, which contains
-# pcrecomp-lithtech2; not yet in main), each found by a line it adds.
+# The toolkit changes this game needs (all in pcrecomp main),
+# each found by a line it adds.
 $need = @(@('the DirectInput HINSTANCE shim', 'runtime\native32\native32.c', 'dinput_create'),
           @('the EnumDevices split', 'runtime\native32\native32.c', 'di_enum_split'),
           @('the headless desktop', 'runtime\native32\native32.c', 'native32_headless'),
@@ -123,7 +123,7 @@ function Missing { @($need | Where-Object {
   -not ((Test-Path $f) -and (Select-String -Path $f -Pattern $_[2] -SimpleMatch -Quiet)) } | ForEach-Object { $_[0] }) }
 $missing = Missing
 if ($missing) {
-  Fail "your pcrecomp at $Toolkit is missing $($missing -join ', '). Check out its pcrecomp-ingame branch (git -C `"$Toolkit`" fetch origin pcrecomp-ingame; git -C `"$Toolkit`" checkout pcrecomp-ingame), or point PCRECOMP at a checkout that has it."
+  Fail "your pcrecomp at $Toolkit is missing $($missing -join ', '). Update it (git -C `"$Toolkit`" pull), or point PCRECOMP at a checkout that has it."
 }
 Say "  pcrecomp: $Toolkit"
 
