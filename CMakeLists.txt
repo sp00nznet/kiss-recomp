@@ -30,10 +30,11 @@ add_executable(kiss
   ${PCRECOMP}/runtime/native32/native32.c
   ${PCRECOMP}/runtime/recomp32/image_loader.c
   ${PCRECOMP}/runtime/recomp32/recomp_trace.c
+  ${PCRECOMP}/runtime/replay/replay.c
   ${GEN_SOURCES}
 )
 target_include_directories(kiss PRIVATE
-  src/runtime src/recomp/gen ${PCRECOMP}/runtime/native32 ${PCRECOMP}/runtime/recomp32)
+  src/runtime src/recomp/gen ${PCRECOMP}/runtime ${PCRECOMP}/runtime/native32 ${PCRECOMP}/runtime/recomp32)
 target_compile_definitions(kiss PRIVATE RECOMP_RETADDR=0u _CRT_SECURE_NO_WARNINGS
                                      RECOMP_FLAT_MEMORY RECOMP_LOCAL_REGS)
 # Linked high and not relocatable, so the guest's 0x00400000 and

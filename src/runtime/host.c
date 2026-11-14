@@ -18,6 +18,7 @@
  */
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <mmsystem.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +26,7 @@
 
 #include "native32.h"
 #include "recomp_trace.h"
+#include "replay/replay.h"
 
 /* ---- the guest modules: same bases as tools/rebase.py ------------------ */
 typedef struct {
@@ -244,7 +246,44 @@ static void shim_HeapReAlloc(void) {
     g_esp += 4 + 4 * 4;
 }
 
+/* Under --record/--replay/--keys f...: the guest's clock is virtual. Every
+ * read of it moves it 1 ms, so the engine sees the same times after the same
+ * work on any machine and at any load (after Exhume: record at the program's
+ * own clock). Native DLLs (Smacker's movies) and Sleep keep the real one: a
+ * virtual Sleep hung start-up at CreateWindowExA.
+ * ponytail: a read counter, so threads that read the clock make it as
+ * deterministic as their interleaving; per-thread clocks if that bites. */
+static int g_vclock;
+static volatile LONG64 g_vms = 1000;
+static uint32_t vclock_read(LONG64 step) { return (uint32_t)InterlockedAdd64(&g_vms, step); }
+static void shim_timeGetTime(void) {
+    g_eax = g_vclock ? vclock_read(1) : timeGetTime();
+    g_esp += 4;
+}
+static void shim_GetTickCount(void) {
+    g_eax = g_vclock ? vclock_read(1) : GetTickCount();
+    g_esp += 4;
+}
+static void shim_QueryPerformanceCounter(void) {
+    LARGE_INTEGER* t = (LARGE_INTEGER*)(uintptr_t)ARG(0);
+    if (g_vclock) t->QuadPart = (LONGLONG)vclock_read(1) * 1000;   /* 1 MHz */
+    else QueryPerformanceCounter(t);
+    g_eax = 1;
+    g_esp += 4 + 4;
+}
+static void shim_QueryPerformanceFrequency(void) {
+    LARGE_INTEGER* f = (LARGE_INTEGER*)(uintptr_t)ARG(0);
+    if (g_vclock) f->QuadPart = 1000000;
+    else QueryPerformanceFrequency(f);
+    g_eax = 1;
+    g_esp += 4 + 4;
+}
+
 static native32_shim_t g_shims[] = {
+    { "timeGetTime", shim_timeGetTime },
+    { "GetTickCount", shim_GetTickCount },
+    { "QueryPerformanceCounter", shim_QueryPerformanceCounter },
+    { "QueryPerformanceFrequency", shim_QueryPerformanceFrequency },
     { "HeapAlloc", shim_HeapAlloc },
     { "HeapFree", shim_HeapFree },
     { "HeapReAlloc", shim_HeapReAlloc },
@@ -417,6 +456,7 @@ static void shot(const char* file) {
 void sub_1012267E(void);
 static volatile LONG g_shot_due = -1;
 
+static volatile uint32_t g_frames;     /* d3d.ren presents: replay's frame */
 static int shot_surface(const char* file, uint32_t slot) {
     void** surf = (void**)(uintptr_t)MEM32(slot);
     if (!surf) return 0;
@@ -452,7 +492,8 @@ static int shot_surface(const char* file, uint32_t slot) {
         fwrite(&bh, sizeof bh, 1, f);
         fwrite(out, stride * h, 1, f);
         fclose(f);
-        printf("[shot] back buffer %dx%d %ubpp -> %s\n", w, h, bits, file);
+        printf("[shot] back buffer %dx%d %ubpp frame %u hash %08X -> %s\n", w, h, bits, g_frames,
+               replay_hash(out, (size_t)stride * h), file);
     }
     free(out);
     return 1;
@@ -501,11 +542,17 @@ static void record_close(void) {
     g_rec = NULL;
 }
 
+static void replay_events(void);
 static void hook_present(void) {
     sub_1012267E();
+    g_frames++;
     record_frame();
     LONG i = g_shot_due;
-    if (i >= 0 && shot_surface(g_shot_file[i], D3D_BACK_SURFACE)) InterlockedExchange(&g_shot_due, -1);
+    if (i >= 0 && shot_surface(g_shot_file[i], D3D_BACK_SURFACE)) {
+        replay_log(g_frames, "shot %s", g_shot_file[i]);
+        InterlockedExchange(&g_shot_due, -1);
+    }
+    replay_events();
 }
 
 recomp_func_t recomp_lookup_manual(uint32_t va) { return va == D3D_PRESENT ? hook_present : NULL; }
@@ -523,6 +570,50 @@ static DWORD WINAPI shot_thread(LPVOID unused) {
     return 0;
 }
 
+/* One key edge into the game, both ways in: the game's actions read
+ * DirectInput, its menus read WM_KEYDOWN, which a window that is not in front
+ * never gets. --headless: native32's synthetic keyboard and posted messages
+ * only (SendInput and the foreground belong to the user's desktop). */
+static void send_key(WORD vk, int up) {
+    HWND w = NULL;
+    EnumWindows(find_window, (LPARAM)&w);
+    int headless = GetEnvironmentVariableA("NATIVE32_HEADLESS", NULL, 0) != 0;
+    INPUT in = { INPUT_KEYBOARD };
+    in.ki.wVk = vk;
+    in.ki.wScan = (WORD)MapVirtualKeyA(vk, 0);
+    /* the arrows, Insert..PageDown: their scancodes are extended ones */
+    DWORD ext = (vk >= VK_PRIOR && vk <= VK_DOWN) || vk == VK_INSERT || vk == VK_DELETE ? KEYEVENTF_EXTENDEDKEY : 0;
+    in.ki.dwFlags = KEYEVENTF_SCANCODE | ext | (up ? KEYEVENTF_KEYUP : 0);
+    LPARAM lp = 1 | ((LPARAM)in.ki.wScan << 16) | (ext ? 1 << 24 : 0) | (up ? 0xC0000000 : 0);
+    replay_log(g_frames, "key %02x %s", vk, up ? "up" : "down");
+    if (headless) native32_input_key(in.ki.wScan | (ext ? 0x80 : 0), !up);
+    else SendInput(1, &in, sizeof(INPUT));
+    if (w) PostMessageA(w, up ? WM_KEYUP : WM_KEYDOWN, vk, lp);
+}
+
+/* --replay FILE / --keys f<frame>:...: events due at this present. "key VK
+ * down|up" (as recorded), "VK[*FRAMES]" (a press held FRAMES, default 8),
+ * "shot FILE", "end". */
+static WORD g_rp_held;
+static uint32_t g_rp_release;
+static void record_close(void);
+static void replay_events(void) {
+    if (g_rp_held && g_frames >= g_rp_release) { send_key(g_rp_held, 1); g_rp_held = 0; }
+    for (const char* e; (e = replay_due(g_frames)) != NULL;) {
+        char a[240] = "", b[16] = "", c[16] = "";
+        sscanf(e, "%239s %15s %15s", a, b, c);
+        if (!strcmp(a, "shot")) { shot_surface(replay_path(e + 5), D3D_BACK_SURFACE); continue; }
+        if (!strcmp(a, "end")) { printf("[replay] frame %u: end\n", g_frames); record_close(); ExitProcess(0); }
+        if (!strcmp(a, "key")) { send_key((WORD)strtoul(b, NULL, 16), *c == 'u'); continue; }
+        char* hold = strchr(a, '*');
+        uint32_t n = hold ? (*hold = 0, (uint32_t)atoi(hold + 1)) : 8;
+        if (g_rp_held) send_key(g_rp_held, 1);
+        g_rp_held = (WORD)strtoul(a, NULL, 0);
+        g_rp_release = g_frames + n;
+        if (g_rp_held) send_key(g_rp_held, 0);
+    }
+}
+
 /* --key VK[:MS]@S: a key press sent to the game window at S seconds, held
  * MS milliseconds (default 250). In-game controls read DirectInput: under
  * --headless that is native32's synthetic keyboard, otherwise SendInput. */
@@ -537,8 +628,6 @@ static DWORD WINAPI key_thread(LPVOID unused) {
         if (at > now) Sleep(at - now);
         HWND w = NULL;
         EnumWindows(find_window, (LPARAM)&w);
-        /* --headless: the window is on a desktop of its own, and SendInput
-         * and the foreground belong to the user's: posted messages only. */
         int headless = GetEnvironmentVariableA("NATIVE32_HEADLESS", NULL, 0) != 0;
         if (w && !headless && GetForegroundWindow() != w) {
             /* Windows lets a background process take the foreground only
@@ -552,25 +641,9 @@ static DWORD WINAPI key_thread(LPVOID unused) {
             AttachThreadInput(me, fg, FALSE);
             Sleep(200);
         }
-        INPUT in[2] = { { INPUT_KEYBOARD }, { INPUT_KEYBOARD } };
-        in[0].ki.wVk = in[1].ki.wVk = g_keys[i].vk;
-        in[0].ki.wScan = in[1].ki.wScan = (WORD)MapVirtualKeyA(g_keys[i].vk, 0);
-        /* the arrows, Insert..PageDown: their scancodes are extended ones */
-        DWORD ext = (g_keys[i].vk >= VK_PRIOR && g_keys[i].vk <= VK_DOWN) ||
-                    g_keys[i].vk == VK_INSERT || g_keys[i].vk == VK_DELETE ? KEYEVENTF_EXTENDEDKEY : 0;
-        in[0].ki.dwFlags = KEYEVENTF_SCANCODE | ext;
-        in[1].ki.dwFlags = KEYEVENTF_SCANCODE | ext | KEYEVENTF_KEYUP;
-        /* Both ways in: the game's actions read DirectInput, its menus read
-         * WM_KEYDOWN, which a window that is not in front never gets. */
-        LPARAM lp = 1 | ((LPARAM)in[0].ki.wScan << 16) | (ext ? 1 << 24 : 0);
-        if (!headless) SendInput(1, &in[0], sizeof(INPUT));
-        int dik = in[0].ki.wScan | (ext ? 0x80 : 0);
-        if (headless) native32_input_key(dik, 1);
-        if (w) PostMessageA(w, WM_KEYDOWN, g_keys[i].vk, lp);
+        send_key(g_keys[i].vk, 0);
         Sleep(g_keys[i].hold);   /* held across a few frames: DirectInput is polled once a frame */
-        if (headless) native32_input_key(dik, 0);
-        if (!headless) SendInput(1, &in[1], sizeof(INPUT));
-        if (w) PostMessageA(w, WM_KEYUP, g_keys[i].vk, lp | 0xC0000000);
+        send_key(g_keys[i].vk, 1);
         printf("[key] 0x%02X at %lu ms%s\n", g_keys[i].vk, GetTickCount() - t0,
                headless ? " (posted)" : GetForegroundWindow() == w ? "" : " (the window is not in front)");
     }
@@ -597,6 +670,7 @@ static DWORD WINAPI watchdog(LPVOID unused) {
     native32_dump_icalls(8);
     recomp_trace_flush();
     fflush(stderr);
+    replay_log(g_frames, "end");
     record_close();
     TerminateProcess(GetCurrentProcess(), 4);
     return 0;
@@ -646,6 +720,7 @@ static int host_main(int argc, char** argv) {
     const char* game = "game";
     char rebased[MAX_PATH] = "work\\rebased", tail[1024] = "";
     int run = 0;
+    const char *rp_record = NULL, *rp_replay = NULL, *rp_keys = NULL;
     setvbuf(stderr, NULL, _IONBF, 0);
     setvbuf(stdout, NULL, _IONBF, 0);
     {
@@ -678,7 +753,13 @@ static int host_main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--native-trace")) native32_trace_native = 1;
         else if (!strcmp(argv[i], "--heap-check")) g_heap_check = 1;
         else if (!strcmp(argv[i], "--early-miles")) g_early_miles = 1;
-        else if (!strcmp(argv[i], "--record") && i + 1 < argc) GetFullPathNameA(argv[++i], MAX_PATH, g_record, NULL);
+        else if (!strcmp(argv[i], "--record") && i + 1 < argc) {   /* .mp4: video; else the input log */
+            size_t n = strlen(argv[++i]);
+            if (n > 4 && !_stricmp(argv[i] + n - 4, ".mp4")) GetFullPathNameA(argv[i], MAX_PATH, g_record, NULL);
+            else rp_record = argv[i];
+        }
+        else if (!strcmp(argv[i], "--replay") && i + 1 < argc) rp_replay = argv[++i];
+        else if (!strcmp(argv[i], "--keys") && i + 1 < argc) rp_keys = argv[++i];
         else if (!strcmp(argv[i], "--di-probe")) { native32_init(); native32_allow_heap_code(); return di_probe(); }
         else if (!strcmp(argv[i], "--native") && i + 1 < argc && g_nnative < 8) g_native[g_nnative++] = argv[++i];
         else if (!strcmp(argv[i], "--trace-at") && i + 1 < argc) g_trace_at = strtoul(argv[++i], NULL, 0);
@@ -689,7 +770,8 @@ static int host_main(int argc, char** argv) {
                 strcat_s(tail, sizeof tail, argv[i]);
             }
         } else {
-            printf("usage: kiss [--run] [--headless] [--record FILE.mp4] [--game game] [--rebased work\\rebased]\n"
+            printf("usage: kiss [--run] [--headless] [--record FILE.mp4|FILE.rec] [--replay FILE.rec]\n"
+                   "            [--keys f<frame>:VK[*frames],...] [--game game] [--rebased work\\rebased]\n"
                    "            [--watchdog S] [--shot S FILE.bmp] [--key VK@S] [--no-16bit]\n"
                    "            [--native-trace] [--callbacks] [--heap-check] [--native MODULE]\n"
                    "            [--early-miles] [--di-probe]\n"
@@ -757,6 +839,8 @@ static int host_main(int argc, char** argv) {
         printf("\n(dry run: mapped and bound; --run enters 0x%08X)\n", entry);
         return 0;
     }
+    replay_init(rp_record ? rp_record : "", rp_replay ? rp_replay : "", rp_keys ? rp_keys : "");
+    g_vclock = rp_record || rp_replay || rp_keys;
     if (!SetCurrentDirectoryA(g_game_dir)) { fprintf(stderr, "cannot enter %s\n", g_game_dir); return 1; }
     if (g_watchdog_s) CloseHandle(CreateThread(NULL, 0, watchdog, NULL, 0, NULL));
     if (g_shots) CloseHandle(CreateThread(NULL, 0, shot_thread, NULL, 0, NULL));

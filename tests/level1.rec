@@ -1,0 +1,31 @@
+# KISS Psycho Circus: intro, New Profile, Game, New Game, Lullaby, Pablo Ramirez, Start; into level 1,
+# then turn right, jump, walk (E). Frames are d3d.ren presents, on the virtual clock; see docs/testing.md.
+94561 key 0d down
+95105 key 0d up
+129091 key 0d down
+129589 key 0d up
+161327 key 0d down
+161553 key 0d up
+166158 shot m1.bmp
+181661 key 0d down
+181662 key 0d up
+187045 key 0d down
+187086 key 0d up
+187789 shot m2.bmp
+189134 key 0d down
+189158 key 0d up
+191694 key 0d down
+191695 key 0d up
+192008 key 0d down
+192009 key 0d up
+192540 key 20 down
+192541 key 20 up
+193825 shot start.bmp
+193888 key 27 down
+193908 key 27 up
+194017 key 20 down
+194025 key 20 up
+194162 key 45 down
+194220 shot moved.bmp
+194244 key 45 up
+195697 end

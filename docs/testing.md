@@ -41,6 +41,45 @@ build\kiss.exe --headless --run --watchdog 600 --key 0x0D@55 --key 0x0D@75 ^
 |---|---|
 | ![start](screenshots/level1-start.png) | ![moved](screenshots/level1-moved.png) |
 
+## Record and replay
+
+`--key` times are wall-clock seconds, so a slow run presses Enter before the
+menu is there. A recording is keyed to the game's own frames instead (the
+presents of `d3d.ren`), and under `--record FILE.rec`, `--replay` or
+`--keys` the game's clock is virtual: every `timeGetTime`, `GetTickCount`
+and `QueryPerformanceCounter` read moves it 1 ms, so frame N comes after the
+same work at any load. (The intro movies are Smacker's, native, on the real
+clock.)
+
+```
+set PCRECOMP_MUTE=1
+build\kiss.exe --headless --run --watchdog 900 --replay tests\level1.rec ^
+    -- +windowed 1 +RGBRast 1 +soundenable 0
+```
+
+[tests/level1.rec](../tests/level1.rec) is the scripted path above, recorded:
+into the first level, `start.bmp`, then right, jump, walk, `moved.bmp` (in
+the current directory, with a hash per shot), then `end`.
+
+Not yet reliable. Three replays in a row: the first matched the recording's
+two menu checkpoints (`m1`, `m2`) hash for hash, then reached a different
+in-level frame; the second went its own way from `m1`; the third stalled in
+the menus. The clock is one counter that every thread reads (and the native
+movies use the real one), so thread interleaving still moves it. Next step:
+a clock per guest thread, or one advanced by presents only.
+
+To record, run any `--key`/`--shot` script with `--record FILE.rec` (a
+`.mp4` name still records video): each key edge and shot is written as
+`FRAME EVENT`. Edit the shot paths to bare names. Keys in frames directly:
+`--keys f193900:0x0D,f194000:0x45*40` (`*N` holds N frames, default 8).
+
+| Line | |
+|---|---|
+| `FRAME key VK down\|up` | a virtual key (hex) |
+| `FRAME VK[*N]` | a press, held N frames |
+| `FRAME shot FILE` | a checkpoint: the back buffer as .bmp and its FNV hash |
+| `FRAME end` | exit |
+
 | Flag | |
 |---|---|
 | `--run` | enter the game (without it: map, bind and stop) |
